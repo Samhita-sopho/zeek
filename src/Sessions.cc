@@ -58,13 +58,13 @@ void IPTunnelTimer::Dispatch(double t, bool is_expire)
 	double last_active = it->second.second;
 	double inactive_time = t > last_active ? t - last_active : 0;
 
-	if ( inactive_time >= zeek::BifConst::Tunnel::ip_tunnel_timeout )
+	if ( inactive_time >= BifConst::Tunnel::ip_tunnel_timeout )
 		// tunnel activity timed out, delete it from map
 		sessions->ip_tunnels.erase(tunnel_idx);
 
 	else if ( ! is_expire )
 		// tunnel activity didn't timeout, schedule another timer
-		zeek::detail::timer_mgr->Add(new IPTunnelTimer(t, tunnel_idx));
+		timer_mgr->Add(new IPTunnelTimer(t, tunnel_idx));
 	}
 
 } // namespace detail
@@ -72,11 +72,11 @@ void IPTunnelTimer::Dispatch(double t, bool is_expire)
 NetSessions::NetSessions()
 	{
 	if ( stp_correlate_pair )
-		stp_manager = new zeek::analyzer::stepping_stone::SteppingStoneManager();
+		stp_manager = new analyzer::stepping_stone::SteppingStoneManager();
 	else
 		stp_manager = nullptr;
 
-	discarder = new zeek::detail::Discarder();
+	discarder = new detail::Discarder();
 	if ( ! discarder->IsActive() )
 		{
 		delete discarder;
@@ -87,16 +87,16 @@ NetSessions::NetSessions()
 
 	dump_this_packet = false;
 	num_packets_processed = 0;
-	static auto pkt_profile_file = zeek::id::find_val("pkt_profile_file");
+	static auto pkt_profile_file = id::find_val("pkt_profile_file");
 
 	if ( pkt_profile_mode && pkt_profile_freq > 0 && pkt_profile_file )
-		pkt_profiler = new zeek::detail::PacketProfiler(pkt_profile_mode,
+		pkt_profiler = new detail::PacketProfiler(pkt_profile_mode,
 				pkt_profile_freq, pkt_profile_file->AsFile());
 	else
 		pkt_profiler = nullptr;
 
 	if ( arp_request || arp_reply || bad_arp )
-		arp_analyzer = new zeek::analyzer::arp::ARP_Analyzer();
+		arp_analyzer = new analyzer::arp::ARP_Analyzer();
 	else
 		arp_analyzer = nullptr;
 
@@ -125,12 +125,12 @@ void NetSessions::Done()
 	{
 	}
 
-void NetSessions::NextPacket(double t, const zeek::Packet* pkt)
+void NetSessions::NextPacket(double t, const Packet* pkt)
 	{
-	zeek::detail::SegmentProfiler prof(zeek::detail::segment_logger, "dispatching-packet");
+	detail::SegmentProfiler prof(detail::segment_logger, "dispatching-packet");
 
 	if ( raw_packet )
-		zeek::event_mgr.Enqueue(raw_packet, pkt->ToRawPktHdrVal());
+		event_mgr.Enqueue(raw_packet, pkt->ToRawPktHdrVal());
 
 	if ( pkt_profiler )
 		pkt_profiler->ProfilePkt(t, pkt->cap_len);
@@ -150,7 +150,7 @@ void NetSessions::NextPacket(double t, const zeek::Packet* pkt)
 
 	uint32_t caplen = pkt->cap_len - pkt->hdr_size;
 
-	if ( pkt->l3_proto == zeek::L3_IPV4 )
+	if ( pkt->l3_proto == L3_IPV4 )
 		{
 		if ( caplen < sizeof(struct ip) )
 			{
@@ -159,11 +159,11 @@ void NetSessions::NextPacket(double t, const zeek::Packet* pkt)
 			}
 
 		const struct ip* ip = (const struct ip*) (pkt->data + pkt->hdr_size);
-		zeek::IP_Hdr ip_hdr(ip, false);
+		IP_Hdr ip_hdr(ip, false);
 		DoNextPacket(t, pkt, &ip_hdr, nullptr);
 		}
 
-	else if ( pkt->l3_proto == zeek::L3_IPV6 )
+	else if ( pkt->l3_proto == L3_IPV6 )
 		{
 		if ( caplen < sizeof(struct ip6_hdr) )
 			{
@@ -171,11 +171,11 @@ void NetSessions::NextPacket(double t, const zeek::Packet* pkt)
 			return;
 			}
 
-		zeek::IP_Hdr ip_hdr((const struct ip6_hdr*) (pkt->data + pkt->hdr_size), false, caplen);
+		IP_Hdr ip_hdr((const struct ip6_hdr*) (pkt->data + pkt->hdr_size), false, caplen);
 		DoNextPacket(t, pkt, &ip_hdr, nullptr);
 		}
 
-	else if ( pkt->l3_proto == zeek::L3_ARP )
+	else if ( pkt->l3_proto == L3_ARP )
 		{
 		if ( arp_analyzer )
 			arp_analyzer->NextPacket(t, pkt);
@@ -217,7 +217,7 @@ static unsigned int gre_header_len(uint16_t flags)
 	return len;
 	}
 
-void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP_Hdr* ip_hdr,
+void NetSessions::DoNextPacket(double t, const Packet* pkt, const IP_Hdr* ip_hdr,
                                const EncapsulationStack* encapsulation)
 	{
 	uint32_t caplen = pkt->cap_len - pkt->hdr_size;
@@ -304,7 +304,7 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 		else
 			{
 			f = NextFragment(t, ip_hdr, pkt->data + pkt->hdr_size);
-			const zeek::IP_Hdr* ih = f->ReassembledPkt();
+			const IP_Hdr* ih = f->ReassembledPkt();
 			if ( ! ih )
 				// It didn't reassemble into anything yet.
 				return;
@@ -334,7 +334,7 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 		{
 		dump_this_packet = true;
 		if ( esp_packet )
-			zeek::event_mgr.Enqueue(esp_packet, ip_hdr->ToPktHdrVal());
+			event_mgr.Enqueue(esp_packet, ip_hdr->ToPktHdrVal());
 
 		// Can't do more since upper-layer payloads are going to be encrypted.
 		return;
@@ -354,7 +354,7 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 			}
 
 		if ( mobile_ipv6_message )
-			zeek::event_mgr.Enqueue(mobile_ipv6_message, ip_hdr->ToPktHdrVal());
+			event_mgr.Enqueue(mobile_ipv6_message, ip_hdr->ToPktHdrVal());
 
 		if ( ip_hdr->NextProto() != IPPROTO_NONE )
 			Weird("mobility_piggyback", pkt, encapsulation);
@@ -403,9 +403,9 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 		const struct icmp* icmpp = (const struct icmp *) data;
 
 		id.src_port = icmpp->icmp_type;
-		id.dst_port = zeek::analyzer::icmp::ICMP4_counterpart(icmpp->icmp_type,
-		                                                      icmpp->icmp_code,
-		                                                      id.is_one_way);
+		id.dst_port = analyzer::icmp::ICMP4_counterpart(icmpp->icmp_type,
+		                                                icmpp->icmp_code,
+		                                                id.is_one_way);
 
 		id.src_port = htons(id.src_port);
 		id.dst_port = htons(id.dst_port);
@@ -419,9 +419,9 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 		const struct icmp* icmpp = (const struct icmp *) data;
 
 		id.src_port = icmpp->icmp_type;
-		id.dst_port = zeek::analyzer::icmp::ICMP6_counterpart(icmpp->icmp_type,
-		                                                      icmpp->icmp_code,
-		                                                      id.is_one_way);
+		id.dst_port = analyzer::icmp::ICMP6_counterpart(icmpp->icmp_type,
+		                                                icmpp->icmp_code,
+		                                                id.is_one_way);
 
 		id.src_port = htons(id.src_port);
 		id.dst_port = htons(id.dst_port);
@@ -432,7 +432,7 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 
 	case IPPROTO_GRE:
 		{
-		if ( ! zeek::BifConst::Tunnel::enable_gre )
+		if ( ! BifConst::Tunnel::enable_gre )
 			{
 			Weird("GRE_tunnel", ip_hdr, encapsulation);
 			return;
@@ -450,7 +450,7 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 		if ( gre_version != 0 && gre_version != 1 )
 			{
 			Weird("unknown_gre_version", ip_hdr, encapsulation,
-			      zeek::util::fmt("%d", gre_version));
+			      util::fmt("%d", gre_version));
 			return;
 			}
 
@@ -528,7 +528,7 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 				{
 				// Enhanced GRE payload must be PPP.
 				Weird("egre_protocol_type", ip_hdr, encapsulation,
-				      zeek::util::fmt("%d", proto_typ));
+				      util::fmt("%d", proto_typ));
 				return;
 				}
 			}
@@ -584,20 +584,20 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 	case IPPROTO_IPV4:
 	case IPPROTO_IPV6:
 		{
-		if ( ! zeek::BifConst::Tunnel::enable_ip )
+		if ( ! BifConst::Tunnel::enable_ip )
 			{
 			Weird("IP_tunnel", ip_hdr, encapsulation);
 			return;
 			}
 
 		if ( encapsulation &&
-		     encapsulation->Depth() >= zeek::BifConst::Tunnel::max_depth )
+		     encapsulation->Depth() >= BifConst::Tunnel::max_depth )
 			{
 			Weird("exceeded_tunnel_max_depth", ip_hdr, encapsulation);
 			return;
 			}
 
-		zeek::IP_Hdr* inner = nullptr;
+		IP_Hdr* inner = nullptr;
 
 		if ( gre_version != 0 )
 			{
@@ -632,11 +632,11 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 			{
 			EncapsulatingConn ec(ip_hdr->SrcAddr(), ip_hdr->DstAddr(),
 			                     tunnel_type);
-			ip_tunnels[tunnel_idx] = TunnelActivity(ec, zeek::net::network_time);
-	        zeek::detail::timer_mgr->Add(new detail::IPTunnelTimer(zeek::net::network_time, tunnel_idx));
+			ip_tunnels[tunnel_idx] = TunnelActivity(ec, net::network_time);
+	        detail::timer_mgr->Add(new detail::IPTunnelTimer(net::network_time, tunnel_idx));
 			}
 		else
-			it->second.second = zeek::net::network_time;
+			it->second.second = net::network_time;
 
 		if ( gre_version == 0 )
 			DoNextInnerPacket(t, pkt, caplen, len, data, gre_link_type,
@@ -661,11 +661,11 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 		}
 
 	default:
-		Weird("unknown_protocol", pkt, encapsulation, zeek::util::fmt("%d", proto));
+		Weird("unknown_protocol", pkt, encapsulation, util::fmt("%d", proto));
 		return;
 	}
 
-	zeek::detail::ConnIDKey key = zeek::detail::BuildConnIDKey(id);
+	detail::ConnIDKey key = detail::BuildConnIDKey(id);
 	Connection* conn = nullptr;
 
 	// FIXME: The following is getting pretty complex. Need to split up
@@ -709,7 +709,7 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 
 	conn->CheckFlowLabel(is_orig, ip_hdr->FlowLabel());
 
-	zeek::ValPtr pkt_hdr_val;
+	ValPtr pkt_hdr_val;
 
 	if ( ipv6_ext_headers && ip_hdr->NumHeaders() > 1 )
 		{
@@ -744,8 +744,8 @@ void NetSessions::DoNextPacket(double t, const zeek::Packet* pkt, const zeek::IP
 		}
 	}
 
-void NetSessions::DoNextInnerPacket(double t, const zeek::Packet* pkt,
-                                    const zeek::IP_Hdr* inner, const EncapsulationStack* prev,
+void NetSessions::DoNextInnerPacket(double t, const Packet* pkt,
+                                    const IP_Hdr* inner, const EncapsulationStack* prev,
                                     const EncapsulatingConn& ec)
 	{
 	uint32_t caplen, len;
@@ -758,9 +758,9 @@ void NetSessions::DoNextInnerPacket(double t, const zeek::Packet* pkt,
 		ts = pkt->ts;
 	else
 		{
-		ts.tv_sec = (time_t) zeek::net::network_time;
+		ts.tv_sec = (time_t) net::network_time;
 		ts.tv_usec = (suseconds_t)
-		    ((zeek::net::network_time - (double)ts.tv_sec) * 1000000);
+		    ((net::network_time - (double)ts.tv_sec) * 1000000);
 		}
 
 	const u_char* data = nullptr;
@@ -775,7 +775,7 @@ void NetSessions::DoNextInnerPacket(double t, const zeek::Packet* pkt,
 	outer->Add(ec);
 
 	// Construct fake packet for DoNextPacket
-	zeek::Packet p;
+	Packet p;
 	p.Init(DLT_RAW, &ts, caplen, len, data, false, "");
 
 	DoNextPacket(t, &p, inner, outer);
@@ -784,7 +784,7 @@ void NetSessions::DoNextInnerPacket(double t, const zeek::Packet* pkt,
 	delete outer;
 	}
 
-void NetSessions::DoNextInnerPacket(double t, const zeek::Packet* pkt,
+void NetSessions::DoNextInnerPacket(double t, const Packet* pkt,
                                     uint32_t caplen, uint32_t len,
                                     const u_char* data, int link_type,
                                     const EncapsulationStack* prev,
@@ -796,9 +796,9 @@ void NetSessions::DoNextInnerPacket(double t, const zeek::Packet* pkt,
 		ts = pkt->ts;
 	else
 		{
-		ts.tv_sec = (time_t) zeek::net::network_time;
+		ts.tv_sec = (time_t) net::network_time;
 		ts.tv_usec = (suseconds_t)
-		    ((zeek::net::network_time - (double)ts.tv_sec) * 1000000);
+		    ((net::network_time - (double)ts.tv_sec) * 1000000);
 		}
 
 	EncapsulationStack* outer = prev ?
@@ -806,10 +806,10 @@ void NetSessions::DoNextInnerPacket(double t, const zeek::Packet* pkt,
 	outer->Add(ec);
 
 	// Construct fake packet for DoNextPacket
-	zeek::Packet p;
+	Packet p;
 	p.Init(link_type, &ts, caplen, len, data, false, "");
 
-	if ( p.Layer2Valid() && (p.l3_proto == zeek::L3_IPV4 || p.l3_proto == zeek::L3_IPV6) )
+	if ( p.Layer2Valid() && (p.l3_proto == L3_IPV4 || p.l3_proto == L3_IPV6) )
 		{
 		auto inner = p.IP();
 		DoNextPacket(t, &p, &inner, outer);
@@ -819,7 +819,7 @@ void NetSessions::DoNextInnerPacket(double t, const zeek::Packet* pkt,
 	}
 
 int NetSessions::ParseIPPacket(int caplen, const u_char* const pkt, int proto,
-                               zeek::IP_Hdr*& inner)
+                               IP_Hdr*& inner)
 	{
 	if ( proto == IPPROTO_IPV6 )
 		{
@@ -827,7 +827,7 @@ int NetSessions::ParseIPPacket(int caplen, const u_char* const pkt, int proto,
 			return -1;
 
 		const struct ip6_hdr* ip6 = (const struct ip6_hdr*) pkt;
-		inner = new zeek::IP_Hdr(ip6, false, caplen);
+		inner = new IP_Hdr(ip6, false, caplen);
 		if ( ( ip6->ip6_ctlun.ip6_un2_vfc & 0xF0 ) != 0x60 )
 			return -2;
 		}
@@ -838,14 +838,14 @@ int NetSessions::ParseIPPacket(int caplen, const u_char* const pkt, int proto,
 			return -1;
 
 		const struct ip* ip4 = (const struct ip*) pkt;
-		inner = new zeek::IP_Hdr(ip4, false);
+		inner = new IP_Hdr(ip4, false);
 		if ( ip4->ip_v != 4 )
 			return -2;
 		}
 
 	else
 		{
-		zeek::reporter->InternalWarning("Bad IP protocol version in ParseIPPacket");
+		reporter->InternalWarning("Bad IP protocol version in ParseIPPacket");
 		return -1;
 		}
 
@@ -856,7 +856,7 @@ int NetSessions::ParseIPPacket(int caplen, const u_char* const pkt, int proto,
 	}
 
 bool NetSessions::CheckHeaderTrunc(int proto, uint32_t len, uint32_t caplen,
-                                   const zeek::Packet* p, const EncapsulationStack* encap)
+                                   const Packet* p, const EncapsulationStack* encap)
 	{
 	uint32_t min_hdr_len = 0;
 	switch ( proto ) {
@@ -901,7 +901,7 @@ bool NetSessions::CheckHeaderTrunc(int proto, uint32_t len, uint32_t caplen,
 	return false;
 	}
 
-detail::FragReassembler* NetSessions::NextFragment(double t, const zeek::IP_Hdr* ip,
+detail::FragReassembler* NetSessions::NextFragment(double t, const IP_Hdr* ip,
                                                    const u_char* pkt)
 	{
 	uint32_t frag_id = ip->ID();
@@ -926,19 +926,19 @@ detail::FragReassembler* NetSessions::NextFragment(double t, const zeek::IP_Hdr*
 	return f;
 	}
 
-Connection* NetSessions::FindConnection(zeek::Val* v)
+Connection* NetSessions::FindConnection(Val* v)
 	{
 	const auto& vt = v->GetType();
-	if ( ! zeek::IsRecord(vt->Tag()) )
+	if ( ! IsRecord(vt->Tag()) )
 		return nullptr;
 
-	zeek::RecordType* vr = vt->AsRecordType();
+	RecordType* vr = vt->AsRecordType();
 	auto vl = v->AsRecord();
 
 	int orig_h, orig_p;	// indices into record's value list
 	int resp_h, resp_p;
 
-	if ( vr == zeek::id::conn_id )
+	if ( vr == id::conn_id )
 		{
 		orig_h = 0;
 		orig_p = 1;
@@ -961,11 +961,11 @@ Connection* NetSessions::FindConnection(zeek::Val* v)
 		// types, too.
 		}
 
-	const zeek::IPAddr& orig_addr = (*vl)[orig_h]->AsAddr();
-	const zeek::IPAddr& resp_addr = (*vl)[resp_h]->AsAddr();
+	const IPAddr& orig_addr = (*vl)[orig_h]->AsAddr();
+	const IPAddr& resp_addr = (*vl)[resp_h]->AsAddr();
 
-	zeek::PortVal* orig_portv = (*vl)[orig_p]->AsPortVal();
-	zeek::PortVal* resp_portv = (*vl)[resp_p]->AsPortVal();
+	PortVal* orig_portv = (*vl)[orig_p]->AsPortVal();
+	PortVal* resp_portv = (*vl)[resp_p]->AsPortVal();
 
 	ConnID id;
 
@@ -977,7 +977,7 @@ Connection* NetSessions::FindConnection(zeek::Val* v)
 
 	id.is_one_way = false;	// ### incorrect for ICMP connections
 
-	zeek::detail::ConnIDKey key = zeek::detail::BuildConnIDKey(id);
+	detail::ConnIDKey key = detail::BuildConnIDKey(id);
 	ConnectionMap* d;
 
 	if ( orig_portv->IsTCP() )
@@ -1006,15 +1006,15 @@ void NetSessions::Remove(Connection* c)
 	{
 	if ( c->IsKeyValid() )
 		{
-		const zeek::detail::ConnIDKey& key = c->Key();
+		const detail::ConnIDKey& key = c->Key();
 		c->CancelTimers();
 
 		if ( c->ConnTransport() == TRANSPORT_TCP )
 			{
-			auto ta = static_cast<zeek::analyzer::tcp::TCP_Analyzer*>(c->GetRootAnalyzer());
+			auto ta = static_cast<analyzer::tcp::TCP_Analyzer*>(c->GetRootAnalyzer());
 			assert(ta->IsAnalyzer("TCP"));
-			zeek::analyzer::tcp::TCP_Endpoint* to = ta->Orig();
-			zeek::analyzer::tcp::TCP_Endpoint* tr = ta->Resp();
+			analyzer::tcp::TCP_Endpoint* to = ta->Orig();
+			analyzer::tcp::TCP_Endpoint* tr = ta->Resp();
 
 			tcp_stats.StateLeft(to->state, tr->state);
 			}
@@ -1030,21 +1030,21 @@ void NetSessions::Remove(Connection* c)
 		switch ( c->ConnTransport() ) {
 		case TRANSPORT_TCP:
 			if ( tcp_conns.erase(key) == 0 )
-				zeek::reporter->InternalWarning("connection missing");
+				reporter->InternalWarning("connection missing");
 			break;
 
 		case TRANSPORT_UDP:
 			if ( udp_conns.erase(key) == 0 )
-				zeek::reporter->InternalWarning("connection missing");
+				reporter->InternalWarning("connection missing");
 			break;
 
 		case TRANSPORT_ICMP:
 			if ( icmp_conns.erase(key) == 0 )
-				zeek::reporter->InternalWarning("connection missing");
+				reporter->InternalWarning("connection missing");
 			break;
 
 		case TRANSPORT_UNKNOWN:
-			zeek::reporter->InternalWarning("unknown transport when removing connection");
+			reporter->InternalWarning("unknown transport when removing connection");
 			break;
 		}
 
@@ -1058,7 +1058,7 @@ void NetSessions::Remove(detail::FragReassembler* f)
 		return;
 
 	if ( fragments.erase(f->Key()) == 0 )
-		zeek::reporter->InternalWarning("fragment reassembler not in dict");
+		reporter->InternalWarning("fragment reassembler not in dict");
 
 	Unref(f);
 	}
@@ -1092,7 +1092,7 @@ void NetSessions::Insert(Connection* c)
 		break;
 
 	default:
-		zeek::reporter->InternalWarning("unknown connection type");
+		reporter->InternalWarning("unknown connection type");
 		Unref(c);
 		return;
 	}
@@ -1165,9 +1165,9 @@ void NetSessions::GetStats(SessionStats& s) const
 	s.max_fragments = stats.max_fragments;
 	}
 
-Connection* NetSessions::NewConn(const zeek::detail::ConnIDKey& k, double t, const ConnID* id,
+Connection* NetSessions::NewConn(const detail::ConnIDKey& k, double t, const ConnID* id,
                                  const u_char* data, int proto, uint32_t flow_label,
-                                 const zeek::Packet* pkt, const EncapsulationStack* encapsulation)
+                                 const Packet* pkt, const EncapsulationStack* encapsulation)
 	{
 	// FIXME: This should be cleaned up a bit, it's too protocol-specific.
 	// But I'm not yet sure what the right abstraction for these things is.
@@ -1191,7 +1191,7 @@ Connection* NetSessions::NewConn(const zeek::detail::ConnIDKey& k, double t, con
 			tproto = TRANSPORT_ICMP;
 			break;
 		default:
-			zeek::reporter->InternalWarning("unknown transport protocol");
+			reporter->InternalWarning("unknown transport protocol");
 			return nullptr;
 	};
 
@@ -1212,7 +1212,7 @@ Connection* NetSessions::NewConn(const zeek::detail::ConnIDKey& k, double t, con
 	if ( flip )
 		conn->FlipRoles();
 
-	if ( ! zeek::analyzer_mgr->BuildInitialAnalyzerTree(conn) )
+	if ( ! analyzer_mgr->BuildInitialAnalyzerTree(conn) )
 		{
 		conn->Done();
 		Unref(conn);
@@ -1225,7 +1225,7 @@ Connection* NetSessions::NewConn(const zeek::detail::ConnIDKey& k, double t, con
 	return conn;
 	}
 
-Connection* NetSessions::LookupConn(const ConnectionMap& conns, const zeek::detail::ConnIDKey& key)
+Connection* NetSessions::LookupConn(const ConnectionMap& conns, const detail::ConnIDKey& key)
 	{
 	auto it = conns.find(key);
 	if ( it != conns.end() )
@@ -1242,7 +1242,7 @@ bool NetSessions::IsLikelyServerPort(uint32_t port, TransportProto proto) const
 
 	if ( ! have_cache )
 		{
-		auto likely_server_ports = zeek::id::find_val<zeek::TableVal>("likely_server_ports");
+		auto likely_server_ports = id::find_val<TableVal>("likely_server_ports");
 		auto lv = likely_server_ports->ToPureListVal();
 		for ( int i = 0; i < lv->Length(); i++ )
 			port_cache.insert(lv->Idx(i)->InternalUnsigned());
@@ -1308,49 +1308,49 @@ bool NetSessions::WantConnection(uint16_t src_port, uint16_t dst_port,
 	return true;
 	}
 
-void NetSessions::DumpPacket(const zeek::Packet *pkt, int len)
+void NetSessions::DumpPacket(const Packet *pkt, int len)
 	{
-	if ( ! zeek::net::detail::pkt_dumper )
+	if ( ! net::detail::pkt_dumper )
 		return;
 
 	if ( len != 0 )
 		{
 		if ( (uint32_t)len > pkt->cap_len )
-			zeek::reporter->Warning("bad modified caplen");
+			reporter->Warning("bad modified caplen");
 		else
-			const_cast<zeek::Packet *>(pkt)->cap_len = len;
+			const_cast<Packet *>(pkt)->cap_len = len;
 		}
 
-	zeek::net::detail::pkt_dumper->Dump(pkt);
+	net::detail::pkt_dumper->Dump(pkt);
 	}
 
-void NetSessions::Weird(const char* name, const zeek::Packet* pkt,
+void NetSessions::Weird(const char* name, const Packet* pkt,
                         const EncapsulationStack* encap, const char* addl)
 	{
 	if ( pkt )
 		dump_this_packet = true;
 
 	if ( encap && encap->LastType() != BifEnum::Tunnel::NONE )
-		zeek::reporter->Weird(zeek::util::fmt("%s_in_tunnel", name), addl);
+		reporter->Weird(util::fmt("%s_in_tunnel", name), addl);
 	else
-		zeek::reporter->Weird(name, addl);
+		reporter->Weird(name, addl);
 	}
 
-void NetSessions::Weird(const char* name, const zeek::IP_Hdr* ip,
+void NetSessions::Weird(const char* name, const IP_Hdr* ip,
                         const EncapsulationStack* encap, const char* addl)
 	{
 	if ( encap && encap->LastType() != BifEnum::Tunnel::NONE )
-		zeek::reporter->Weird(ip->SrcAddr(), ip->DstAddr(),
-		                      zeek::util::fmt("%s_in_tunnel", name), addl);
+		reporter->Weird(ip->SrcAddr(), ip->DstAddr(),
+		                      util::fmt("%s_in_tunnel", name), addl);
 	else
-		zeek::reporter->Weird(ip->SrcAddr(), ip->DstAddr(), name, addl);
+		reporter->Weird(ip->SrcAddr(), ip->DstAddr(), name, addl);
 	}
 
 unsigned int NetSessions::ConnectionMemoryUsage()
 	{
 	unsigned int mem = 0;
 
-	if ( zeek::net::terminating )
+	if ( net::terminating )
 		// Connections have been flushed already.
 		return 0;
 
@@ -1370,7 +1370,7 @@ unsigned int NetSessions::ConnectionMemoryUsageConnVals()
 	{
 	unsigned int mem = 0;
 
-	if ( zeek::net::terminating )
+	if ( net::terminating )
 		// Connections have been flushed already.
 		return 0;
 
@@ -1388,7 +1388,7 @@ unsigned int NetSessions::ConnectionMemoryUsageConnVals()
 
 unsigned int NetSessions::MemoryAllocation()
 	{
-	if ( zeek::net::terminating )
+	if ( net::terminating )
 		// Connections have been flushed already.
 		return 0;
 
@@ -1402,7 +1402,7 @@ unsigned int NetSessions::MemoryAllocation()
 		;
 	}
 
-void NetSessions::InsertConnection(ConnectionMap* m, const zeek::detail::ConnIDKey& key, Connection* conn)
+void NetSessions::InsertConnection(ConnectionMap* m, const detail::ConnIDKey& key, Connection* conn)
 	{
 	(*m)[key] = conn;
 

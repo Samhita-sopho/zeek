@@ -8,12 +8,12 @@ ZEEK_FORWARD_DECLARE_NAMESPACED(File, zeek, file_analysis);
 namespace zeek::file_analysis {
 
 FileReassembler::FileReassembler(File *f, uint64_t starting_offset)
-	: zeek::Reassembler(starting_offset, zeek::REASSEM_FILE), the_file(f), flushing(false)
+	: Reassembler(starting_offset, REASSEM_FILE), the_file(f), flushing(false)
 	{
 	}
 
 FileReassembler::FileReassembler()
-	: zeek::Reassembler(), the_file(nullptr), flushing(false)
+	: Reassembler(), the_file(nullptr), flushing(false)
 	{
 	}
 
@@ -50,7 +50,7 @@ uint64_t FileReassembler::FlushTo(uint64_t sequence)
 	return rval;
 	}
 
-void FileReassembler::BlockInserted(zeek::DataBlockMap::const_iterator it)
+void FileReassembler::BlockInserted(DataBlockMap::const_iterator it)
 	{
 	const auto& start_block = it->second;
 

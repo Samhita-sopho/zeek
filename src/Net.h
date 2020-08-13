@@ -28,14 +28,14 @@ extern void net_get_final_stats();
 extern void net_finish(int drain_events);
 extern void net_delete();	// Reclaim all memory, etc.
 extern void net_update_time(double new_network_time);
-extern void net_packet_dispatch(double t, const zeek::Packet* pkt,
-                                zeek::iosource::PktSrc* src_ps);
-extern void expire_timers(zeek::iosource::PktSrc* src_ps = nullptr);
+extern void net_packet_dispatch(double t, const Packet* pkt,
+                                iosource::PktSrc* src_ps);
+extern void expire_timers(iosource::PktSrc* src_ps = nullptr);
 extern void zeek_terminate_loop(const char* reason);
 
-extern zeek::iosource::PktSrc* current_pktsrc;
-extern zeek::iosource::IOSource* current_iosrc;
-extern zeek::iosource::PktDumper* pkt_dumper;	// where to save packets
+extern iosource::PktSrc* current_pktsrc;
+extern iosource::IOSource* current_iosrc;
+extern iosource::PktDumper* pkt_dumper;	// where to save packets
 
 // True if we have timers scheduled for the future on which we need
 // to wait.  "Need to wait" here means that we're running live (though
@@ -109,7 +109,7 @@ extern bool terminating;
 // True if Bro is currently parsing scripts.
 extern bool is_parsing;
 
-extern const zeek::Packet* current_pkt;
+extern const Packet* current_pkt;
 extern int current_dispatched;
 extern double current_timestamp;
 

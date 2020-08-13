@@ -28,7 +28,7 @@ namespace detail {
 
 class DictEntry {
 public:
-	DictEntry(void* k, int l, zeek::detail::hash_t h, void* val) : key(k), len(l), hash(h), value(val) {}
+	DictEntry(void* k, int l, hash_t h, void* val) : key(k), len(l), hash(h), value(val) {}
 
 	~DictEntry()
 		{
@@ -37,7 +37,7 @@ public:
 
 	void* key;
 	int len;
-	zeek::detail::hash_t hash;
+	hash_t hash;
 	void* value;
 };
 
@@ -50,9 +50,9 @@ public:
 	IterCookie(int b, int o) : bucket(b), offset(o) {}
 
 	int bucket, offset;
-	zeek::PList<detail::DictEntry>** ttbl = nullptr;
+	PList<detail::DictEntry>** ttbl = nullptr;
 	const int* num_buckets_p = nullptr;
-	zeek::PList<detail::DictEntry> inserted;	// inserted while iterating
+	PList<detail::DictEntry> inserted;	// inserted while iterating
 };
 
 } // namespace zeek
@@ -200,7 +200,7 @@ namespace zeek {
 Dictionary::Dictionary(DictOrder ordering, int initial_size)
 	{
 	if ( ordering == ORDERED )
-		order = new zeek::PList<detail::DictEntry>;
+		order = new PList<detail::DictEntry>;
 
 	if ( initial_size > 0 )
 		Init(initial_size);
@@ -229,7 +229,7 @@ void Dictionary::DeInit()
 	for ( int i = 0; i < num_buckets; ++i )
 		if ( tbl[i] )
 			{
-			zeek::PList<detail::DictEntry>* chain = tbl[i];
+			PList<detail::DictEntry>* chain = tbl[i];
 			for ( const auto& e : *chain )
 				{
 				if ( delete_func )
@@ -249,7 +249,7 @@ void Dictionary::DeInit()
 	for ( int i = 0; i < num_buckets2; ++i )
 		if ( tbl2[i] )
 			{
-			zeek::PList<detail::DictEntry>* chain = tbl2[i];
+			PList<detail::DictEntry>* chain = tbl2[i];
 			for ( const auto& e : *chain )
 				{
 				if ( delete_func )
@@ -264,13 +264,13 @@ void Dictionary::DeInit()
 	tbl2 = nullptr;
 	}
 
-void* Dictionary::Lookup(const void* key, int key_size, zeek::detail::hash_t hash) const
+void* Dictionary::Lookup(const void* key, int key_size, detail::hash_t hash) const
 	{
 	if ( ! tbl && ! tbl2 )
 		return nullptr;
 
-	zeek::detail::hash_t h;
-	zeek::PList<detail::DictEntry>* chain;
+	detail::hash_t h;
+	PList<detail::DictEntry>* chain;
 
 	// Figure out which hash table to look in.
 	h = hash % num_buckets;
@@ -292,7 +292,7 @@ void* Dictionary::Lookup(const void* key, int key_size, zeek::detail::hash_t has
 	return nullptr;
 	}
 
-void* Dictionary::Insert(void* key, int key_size, zeek::detail::hash_t hash, void* val,
+void* Dictionary::Insert(void* key, int key_size, detail::hash_t hash, void* val,
 				bool copy_key)
 	{
 	if ( ! tbl )
@@ -319,14 +319,14 @@ void* Dictionary::Insert(void* key, int key_size, zeek::detail::hash_t hash, voi
 	return old_val;
 	}
 
-void* Dictionary::Remove(const void* key, int key_size, zeek::detail::hash_t hash,
+void* Dictionary::Remove(const void* key, int key_size, detail::hash_t hash,
 				bool dont_delete)
 	{
 	if ( ! tbl && ! tbl2 )
 		return nullptr;
 
-	zeek::detail::hash_t h;
-	zeek::PList<detail::DictEntry>* chain;
+	detail::hash_t h;
+	PList<detail::DictEntry>* chain;
 	int* num_entries_ptr;
 
 	// Figure out which hash table to look in
@@ -368,8 +368,8 @@ void* Dictionary::Remove(const void* key, int key_size, zeek::detail::hash_t has
 	return nullptr;
 	}
 
-void* Dictionary::DoRemove(detail::DictEntry* entry, zeek::detail::hash_t h,
-				zeek::PList<detail::DictEntry>* chain, int chain_offset)
+void* Dictionary::DoRemove(detail::DictEntry* entry, detail::hash_t h,
+				PList<detail::DictEntry>* chain, int chain_offset)
 	{
 	void* entry_value = entry->value;
 
@@ -424,11 +424,11 @@ void Dictionary::StopIteration(IterCookie* cookie) const
 	delete cookie;
 	}
 
-void* Dictionary::NextEntry(zeek::detail::HashKey*& h, IterCookie*& cookie, int return_hash) const
+void* Dictionary::NextEntry(detail::HashKey*& h, IterCookie*& cookie, int return_hash) const
 	{
 	if ( ! tbl && ! tbl2 )
 		{
-		const_cast<zeek::PList<IterCookie>*>(&cookies)->remove(cookie);
+		const_cast<PList<IterCookie>*>(&cookies)->remove(cookie);
 		delete cookie;
 		cookie = nullptr;
 		return nullptr;
@@ -446,14 +446,14 @@ void* Dictionary::NextEntry(zeek::detail::HashKey*& h, IterCookie*& cookie, int 
 		// and removing from the tail is cheaper.
 		entry = cookie->inserted.remove_nth(cookie->inserted.length()-1);
 		if ( return_hash )
-			h = new zeek::detail::HashKey(entry->key, entry->len, entry->hash);
+			h = new detail::HashKey(entry->key, entry->len, entry->hash);
 
 		return entry->value;
 		}
 
 	int b = cookie->bucket;
 	int o = cookie->offset;
-	zeek::PList<detail::DictEntry>** ttbl;
+	PList<detail::DictEntry>** ttbl;
 	const int* num_buckets_p;
 
 	if ( ! cookie->ttbl )
@@ -471,7 +471,7 @@ void* Dictionary::NextEntry(zeek::detail::HashKey*& h, IterCookie*& cookie, int 
 		entry = (*ttbl[b])[o];
 		++cookie->offset;
 		if ( return_hash )
-			h = new zeek::detail::HashKey(entry->key, entry->len, entry->hash);
+			h = new detail::HashKey(entry->key, entry->len, entry->hash);
 		return entry->value;
 		}
 
@@ -495,7 +495,7 @@ void* Dictionary::NextEntry(zeek::detail::HashKey*& h, IterCookie*& cookie, int 
 
 		// FIXME: I don't like removing the const here. But is there
 		// a better way?
-		const_cast<zeek::PList<IterCookie>*>(&cookies)->remove(cookie);
+		const_cast<PList<IterCookie>*>(&cookies)->remove(cookie);
 		delete cookie;
 		cookie = nullptr;
 		return nullptr;
@@ -503,7 +503,7 @@ void* Dictionary::NextEntry(zeek::detail::HashKey*& h, IterCookie*& cookie, int 
 
 	entry = (*ttbl[b])[0];
 	if ( return_hash )
-		h = new zeek::detail::HashKey(entry->key, entry->len, entry->hash);
+		h = new detail::HashKey(entry->key, entry->len, entry->hash);
 
 	cookie->bucket = b;
 	cookie->offset = 1;
@@ -514,7 +514,7 @@ void* Dictionary::NextEntry(zeek::detail::HashKey*& h, IterCookie*& cookie, int 
 void Dictionary::Init(int size)
 	{
 	num_buckets = NextPrime(size);
-	tbl = new zeek::PList<detail::DictEntry>*[num_buckets];
+	tbl = new PList<detail::DictEntry>*[num_buckets];
 
 	for ( int i = 0; i < num_buckets; ++i )
 		tbl[i] = nullptr;
@@ -526,7 +526,7 @@ void Dictionary::Init(int size)
 void Dictionary::Init2(int size)
 	{
 	num_buckets2 = NextPrime(size);
-	tbl2 = new zeek::PList<detail::DictEntry>*[num_buckets2];
+	tbl2 = new PList<detail::DictEntry>*[num_buckets2];
 
 	for ( int i = 0; i < num_buckets2; ++i )
 		tbl2[i] = nullptr;
@@ -540,10 +540,10 @@ void* Dictionary::Insert(detail::DictEntry* new_entry, bool copy_key)
 	if ( ! tbl )
 		Init(DEFAULT_DICT_SIZE);
 
-	zeek::PList<detail::DictEntry>** ttbl;
+	PList<detail::DictEntry>** ttbl;
 	int* num_entries_ptr;
 	int* max_num_entries_ptr;
-	zeek::detail::hash_t h = new_entry->hash % num_buckets;
+	detail::hash_t h = new_entry->hash % num_buckets;
 
 	// We must be careful when we are in the middle of resizing.
 	// If the new entry hashes to a bucket in the old table we
@@ -565,7 +565,7 @@ void* Dictionary::Insert(detail::DictEntry* new_entry, bool copy_key)
 		max_num_entries_ptr = &max_num_entries2;
 		}
 
-	zeek::PList<detail::DictEntry>* chain = ttbl[h];
+	PList<detail::DictEntry>* chain = ttbl[h];
 
 	int n = new_entry->len;
 
@@ -587,7 +587,7 @@ void* Dictionary::Insert(detail::DictEntry* new_entry, bool copy_key)
 		}
 	else
 		// Create new chain.
-		chain = ttbl[h] = new zeek::PList<detail::DictEntry>;
+		chain = ttbl[h] = new PList<detail::DictEntry>;
 
 	// If we got this far, then we couldn't use an existing copy
 	// of the key, so make a new one if necessary.
@@ -650,7 +650,7 @@ void Dictionary::StartChangeSize(int new_size)
 		return;
 
 	if ( tbl2 )
-		zeek::reporter->InternalError("Dictionary::StartChangeSize() tbl2 not NULL");
+		reporter->InternalError("Dictionary::StartChangeSize() tbl2 not NULL");
 
 	Init2(new_size);
 
@@ -671,7 +671,7 @@ void Dictionary::MoveChains()
 
 	do
 		{
-		zeek::PList<detail::DictEntry>* chain = tbl[tbl_next_ind++];
+		PList<detail::DictEntry>* chain = tbl[tbl_next_ind++];
 
 		if ( ! chain )
 			continue;
@@ -697,7 +697,7 @@ void Dictionary::FinishChangeSize()
 	{
 	// Cheap safety check.
 	if ( num_entries != 0 )
-		zeek::reporter->InternalError(
+		reporter->InternalError(
 		    "Dictionary::FinishChangeSize: num_entries is %d\n",
 		    num_entries);
 
@@ -731,13 +731,13 @@ unsigned int Dictionary::MemoryAllocation() const
 	for ( int i = 0; i < num_buckets; ++i )
 		if ( tbl[i] )
 			{
-			zeek::PList<detail::DictEntry>* chain = tbl[i];
+			PList<detail::DictEntry>* chain = tbl[i];
 			for ( const auto& c : *chain )
-				size += padded_sizeof(detail::DictEntry) + zeek::util::pad_size(c->len);
+				size += padded_sizeof(detail::DictEntry) + util::pad_size(c->len);
 			size += chain->MemoryAllocation();
 			}
 
-	size += zeek::util::pad_size(num_buckets * sizeof(zeek::PList<detail::DictEntry>*));
+	size += util::pad_size(num_buckets * sizeof(PList<detail::DictEntry>*));
 
 	if ( order )
 		size += order->MemoryAllocation();
@@ -747,13 +747,13 @@ unsigned int Dictionary::MemoryAllocation() const
 		for ( int i = 0; i < num_buckets2; ++i )
 			if ( tbl2[i] )
 				{
-				zeek::PList<detail::DictEntry>* chain = tbl2[i];
+				PList<detail::DictEntry>* chain = tbl2[i];
 				for ( const auto& c : *chain )
-					size += padded_sizeof(detail::DictEntry) + zeek::util::pad_size(c->len);
+					size += padded_sizeof(detail::DictEntry) + util::pad_size(c->len);
 				size += chain->MemoryAllocation();
 				}
 
-		size += zeek::util::pad_size(num_buckets2 * sizeof(zeek::PList<detail::DictEntry>*));
+		size += util::pad_size(num_buckets2 * sizeof(PList<detail::DictEntry>*));
 		}
 
 	return size;
